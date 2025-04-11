@@ -1,0 +1,34 @@
+---
+- name: install package
+  package:
+    name:
+      - ntp
+      - ntpdate
+      - rsync
+      - bash-completion
+      - net-tools
+      - wget
+      - gcc
+      - gcc-c++
+      - lrzsz
+      - vim
+      - unzip
+      - make
+      - openssl-devel
+      - iptables-services
+      - iscsi-initiator-utils
+      - conntrack
+      - ipvsadm
+      - ipset
+      - jq
+      - curl
+      - sysstat
+      - libseccomp
+      - fuse
+      - glusterfs
+      - glusterfs-server
+      - glusterfs-fuse
+      - glusterfs-rdma
+      - glusterfs-geo-replication
+      - glusterfs-devel
+    state: latest
