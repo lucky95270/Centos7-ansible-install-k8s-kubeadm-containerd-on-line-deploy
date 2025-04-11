@@ -343,6 +343,14 @@ default_ingress_version: "v1.5.1"
 
 ### 4. 验证集群
 
+目前高版本 etcd 集成外置有问题，于是脚本还是使用的内置
+所以证书文件路径要替换为
+```sh
+ETCD_CA="/etc/kubernetes/pki/etcd/ca.crt"
+ETCD_CERT="/etc/kubernetes/pki/etcd/peer.crt"
+ETCD_KEY="/etc/kubernetes/pki/etcd/peer.key"
+```
+
 ```
 [root@localhost ~]# etcdctl --cacert=/etc/etcd/ssl/ca.pem --cert=/etc/etcd/ssl/server.pem --key=/etc/etcd/ssl/server-key.pem --endpoints="https://etcd1:2379,https://etcd2:2379,https://etcd3:2379" member list -w table
 +------------------+---------+-------+------------------------+------------------------+------------+
@@ -393,6 +401,98 @@ default_ingress_version: "v1.5.1"
 [root@k8s-master1 ~]# kubectl create deployment nginx --image=harbor.meta42.indc.vnet.com/library/nginx:latest --replicas=4
 
 [root@k8s-master1 ~]# kubectl expose deployment nginx --port=80 --target-port=80 --type=NodePort
+```
+
+### 6. 使用集群内 etcd
+
+制作备份服务
+
+```sh
+[root@localhost ~]# vim /etc/systemd/system/etcd-backup.service
+[Unit]
+Description=ETCD Backup Service
+After=network.target
+Wants=etcd.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/bin/etcd-backup.sh
+Environment="ETCDCTL_API=3"
+
+[Install]
+WantedBy=multi-user.target
+
+[root@localhost ~]# cat /etc/systemd/system/etcd-backup.timer 
+[Unit]
+Description=Run etcd backup hourly
+
+[Timer]
+OnCalendar=hourly
+AccuracySec=1m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+[root@localhost ~]# cat /usr/local/bin/etcd-backup.sh
+#!/bin/bash
+
+# 配置变量
+ETCD_CA="/etc/kubernetes/pki/etcd/ca.crt"
+ETCD_CERT="/etc/kubernetes/pki/etcd/peer.crt"
+ETCD_KEY="/etc/kubernetes/pki/etcd/peer.key"
+ETCD_ENDPOINTS="https://11.0.1.31:2379,https://11.0.1.32:2379,https://11.0.1.33:2379"
+BACKUP_DIR="/var/lib/etcd-backup"
+KEEP_DAYS="7"
+
+# 创建备份目录
+mkdir -p "${BACKUP_DIR}"
+
+# 选择第一个健康的节点进行备份
+IFS=',' read -ra ENDPOINTS <<< "${ETCD_ENDPOINTS}"
+for endpoint in "${ENDPOINTS[@]}"; do
+    if ETCDCTL_API=3 etcdctl --cacert="${ETCD_CA}" \
+       --cert="${ETCD_CERT}" --key="${ETCD_KEY}" \
+       --endpoints="${endpoint}" endpoint health &>/dev/null; then
+        HEALTHY_ENDPOINT="${endpoint}"
+        break
+    fi
+done
+
+if [ -z "${HEALTHY_ENDPOINT}" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - No healthy etcd endpoint available, skipping backup" >&2
+    exit 1
+fi
+
+# 创建备份文件名
+BACKUP_FILE="${BACKUP_DIR}/etcd-snapshot-$(date +%Y%m%d-%H%M%S).db"
+
+# 执行备份
+echo "$(date '+%Y-%m-%d %H:%M:%S') - Starting etcd backup to ${BACKUP_FILE} using endpoint ${HEALTHY_ENDPOINT}"
+if ETCDCTL_API=3 etcdctl --cacert="${ETCD_CA}" \
+   --cert="${ETCD_CERT}" --key="${ETCD_KEY}" \
+   --endpoints="${HEALTHY_ENDPOINT}" snapshot save "${BACKUP_FILE}"; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup completed successfully"
+    
+    # 检查备份文件状态
+    ETCDCTL_API=3 etcdctl --write-out=table snapshot status "${BACKUP_FILE}"
+    
+    # 清理旧备份
+    find "${BACKUP_DIR}" -name 'etcd-snapshot-*.db' -mtime +${KEEP_DAYS} -delete
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Old backups older than ${KEEP_DAYS} days cleaned"
+else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup failed" >&2
+    exit 1
+fi
+```
+
+启动备份
+
+```sh
+[root@localhost ~]# systemctl daemon-reload 
+[root@localhost ~]# systemctl enable etcd-backup --now
+[root@localhost ~]# systemctl enable etcd-backup.timer --now
 ```
 
 ### 5. 调整 kube 启动参数
