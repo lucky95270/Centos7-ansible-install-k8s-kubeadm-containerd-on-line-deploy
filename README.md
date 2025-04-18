@@ -100,6 +100,8 @@ newnode
 ansible_become: true
 ansible_become_method: sudo
 
+tmp_dir: '/opt/k8s-install/join'
+
 # 安装源配置
 base_repo: "http://centos7-yum.linuxtian.com/CentOS-Base.repo"
 epel_repo: "http://centos7-yum.linuxtian.com/CentOS-Base.repo"
@@ -108,7 +110,6 @@ docker_ce_repo: "https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.rep
 # kubernetes 安装信息
 ghproxy: 'https://ghfast.top/'
 code_version: 'v1.28.2'
-tmp_dir: '/opt/k8s-install/join'
 containerd_data: '/var/lib/containerd'
 runc_version: 'v1.1.9'
 containerd_version: '1.7.25'
@@ -313,6 +314,8 @@ newnode
 ansible_become: true
 ansible_become_method: sudo
 
+tmp_dir: '/opt/k8s-install/join'
+
 # 安装源配置
 base_repo: "http://centos7-yum.linuxtian.com/CentOS-Base.repo"
 epel_repo: "http://centos7-yum.linuxtian.com/CentOS-Base.repo"
@@ -321,7 +324,6 @@ docker_ce_repo: "https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.rep
 # kubernetes 安装信息
 ghproxy: 'https://ghfast.top/'
 code_version: 'v1.28.2'
-tmp_dir: '/opt/k8s-install/join'
 containerd_data: '/var/lib/containerd'
 runc_version: 'v1.1.9'
 containerd_version: '1.7.25'
