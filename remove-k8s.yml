@@ -24,8 +24,8 @@
           - kubelet
           - kubeadm
           - kubectl
-          - docker-ce
-          - docker-ce-cli
+          - docker-*
+          - containerd
         state: absent
       ignore_errors: yes
 
